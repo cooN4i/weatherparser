@@ -1,6 +1,8 @@
 import logging
+
 from telebot.async_telebot import AsyncTeleBot
 from telebot.types import Message
+
 from app.config import config
 from app.db import crud
 from app.services.weather import WeatherService
@@ -42,8 +44,8 @@ def register_handlers(bot: AsyncTeleBot) -> None:
         try:
             forecast_msg = await WeatherService.get_today_forecast_message()
             await bot.send_message(user_id, forecast_msg, parse_mode="HTML")
-        except Exception as e:
-            logger.exception("Error sending preview forecast on /start: %s", e)
+        except Exception:
+            logger.exception("Error sending preview forecast on /start")
 
     @bot.message_handler(commands=["weather", "today"])
     async def handle_weather(message: Message) -> None:
@@ -51,8 +53,8 @@ def register_handlers(bot: AsyncTeleBot) -> None:
         try:
             forecast_msg = await WeatherService.get_today_forecast_message()
             await bot.send_message(user_id, forecast_msg, parse_mode="HTML")
-        except Exception as e:
-            logger.exception("Error fetching weather for user %d: %s", user_id, e)
+        except Exception:
+            logger.exception("Error fetching weather for user %d", user_id)
             await bot.send_message(
                 user_id,
                 "⚠️ Не удалось получить свежий прогноз погоды. Пожалуйста, попробуйте чуть позже.",
@@ -72,8 +74,7 @@ def register_handlers(bot: AsyncTeleBot) -> None:
             )
         else:
             text = (
-                "Вы не были подписаны на рассылку. "
-                "Чтобы подписаться, отправьте /start."
+                "Вы не были подписаны на рассылку. Чтобы подписаться, отправьте /start."
             )
 
         await bot.send_message(user_id, text, parse_mode="HTML")

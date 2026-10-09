@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+
 import httpx
+
 from app.config import config
 
 logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ def classify_wind(speed_ms: float) -> str:
         return "штормовой"
 
 
-def format_temp(val: float | int) -> str:
+def format_temp(val: float) -> str:
     """Formats temperature with explicit + or - sign."""
     rounded = round(val)
     if rounded > 0:

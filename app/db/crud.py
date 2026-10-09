@@ -1,6 +1,8 @@
 import logging
-from datetime import datetime, timezone
-from sqlalchemy import select, func
+from datetime import UTC, datetime
+
+from sqlalchemy import func, select
+
 from app.db.models import User
 from app.db.session import AsyncSessionLocal
 
@@ -31,13 +33,17 @@ async def add_or_activate_user(
             )
             session.add(user)
             is_new = True
-            logger.info("New user registered: %s (id=%d)", username or first_name, telegram_id)
+            logger.info(
+                "New user registered: %s (id=%d)", username or first_name, telegram_id
+            )
         else:
             user.username = username
             user.first_name = first_name
             user.is_subscribed = True
-            user.updated_at = datetime.now(timezone.utc)
-            logger.info("User re-activated: %s (id=%d)", username or first_name, telegram_id)
+            user.updated_at = datetime.now(UTC)
+            logger.info(
+                "User re-activated: %s (id=%d)", username or first_name, telegram_id
+            )
 
         await session.commit()
         await session.refresh(user)
@@ -56,7 +62,7 @@ async def deactivate_user(telegram_id: int) -> bool:
 
         if user and user.is_subscribed:
             user.is_subscribed = False
-            user.updated_at = datetime.now(timezone.utc)
+            user.updated_at = datetime.now(UTC)
             await session.commit()
             logger.info("User unsubscribed: id=%d", telegram_id)
             return True
@@ -66,7 +72,7 @@ async def deactivate_user(telegram_id: int) -> bool:
 async def get_subscribed_users() -> list[User]:
     """Returns all active subscribers."""
     async with AsyncSessionLocal() as session:
-        stmt = select(User).where(User.is_subscribed == True)  # noqa: E712
+        stmt = select(User).where(User.is_subscribed == True)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -83,7 +89,7 @@ async def get_stats() -> dict[str, int]:
     """Returns count of total and active users."""
     async with AsyncSessionLocal() as session:
         total_stmt = select(func.count(User.id))
-        active_stmt = select(func.count(User.id)).where(User.is_subscribed == True)  # noqa: E712
+        active_stmt = select(func.count(User.id)).where(User.is_subscribed == True)
 
         total = (await session.execute(total_stmt)).scalar() or 0
         active = (await session.execute(active_stmt)).scalar() or 0

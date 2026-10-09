@@ -1,7 +1,9 @@
 import asyncio
 import logging
+
 from telebot.async_telebot import AsyncTeleBot
 from telebot.asyncio_helper import ApiTelegramException
+
 from app.db import crud
 from app.services.weather import WeatherService
 
@@ -17,8 +19,8 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
 
     try:
         forecast_message = await WeatherService.get_today_forecast_message()
-    except Exception as e:
-        logger.exception("Failed to fetch weather forecast for broadcast: %s", e)
+    except Exception:
+        logger.exception("Failed to fetch weather forecast for broadcast")
         return
 
     subscribers = await crud.get_subscribed_users()
@@ -45,7 +47,11 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
         except ApiTelegramException as e:
             # Error 403: bot was blocked by user / user deactivated
             # Error 400: chat not found
-            if e.error_code in (403, 400) or "blocked" in str(e).lower() or "not found" in str(e).lower():
+            if (
+                e.error_code in (403, 400)
+                or "blocked" in str(e).lower()
+                or "not found" in str(e).lower()
+            ):
                 logger.warning(
                     "User %d blocked the bot or chat is invalid (%s). Deactivating subscription.",
                     user.telegram_id,
@@ -54,10 +60,12 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
                 await crud.deactivate_user(user.telegram_id)
                 deactivated_count += 1
             else:
-                logger.error("Telegram API error sending to %d: %s", user.telegram_id, e)
+                logger.error(
+                    "Telegram API error sending to %d: %s", user.telegram_id, e
+                )
                 error_count += 1
-        except Exception as e:
-            logger.exception("Unexpected error sending to user %d: %s", user.telegram_id, e)
+        except Exception:
+            logger.exception("Unexpected error sending to user %d", user.telegram_id)
             error_count += 1
 
     logger.info(
