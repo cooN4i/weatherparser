@@ -33,7 +33,8 @@ class Config:
     def validate(cls):
         if not cls.BOT_TOKEN:
             raise ValueError(
-                "BOT_TOKEN не задан! Проверьте файл .env или переменные окружения."
+                "BOT_TOKEN не задан! Проверьте файл .env или "
+                "переменные окружения."
             )
 
 

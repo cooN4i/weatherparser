@@ -63,9 +63,16 @@ async def main() -> None:
     # 6. Retrieve bot information
     try:
         me = await bot.get_me()
-        logger.info("Bot authenticated successfully: @%s (ID: %d)", me.username, me.id)
+        logger.info(
+            "Bot authenticated successfully: @%s (ID: %d)",
+            me.username,
+            me.id,
+        )
     except Exception as e:
-        logger.error("Failed to connect to Telegram API. Check your BOT_TOKEN: %s", e)
+        logger.error(
+            "Failed to connect to Telegram API. Check your BOT_TOKEN: %s",
+            e,
+        )
         raise
 
     logger.info("Bot is now listening for messages (polling mode)...")

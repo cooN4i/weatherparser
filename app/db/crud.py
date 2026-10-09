@@ -34,7 +34,9 @@ async def add_or_activate_user(
             session.add(user)
             is_new = True
             logger.info(
-                "New user registered: %s (id=%d)", username or first_name, telegram_id
+                "New user registered: %s (id=%d)",
+                username or first_name,
+                telegram_id,
             )
         else:
             user.username = username
@@ -42,7 +44,9 @@ async def add_or_activate_user(
             user.is_subscribed = True
             user.updated_at = datetime.now(UTC)
             logger.info(
-                "User re-activated: %s (id=%d)", username or first_name, telegram_id
+                "User re-activated: %s (id=%d)",
+                username or first_name,
+                telegram_id,
             )
 
         await session.commit()
@@ -72,7 +76,7 @@ async def deactivate_user(telegram_id: int) -> bool:
 async def get_subscribed_users() -> list[User]:
     """Returns all active subscribers."""
     async with AsyncSessionLocal() as session:
-        stmt = select(User).where(User.is_subscribed == True)
+        stmt = select(User).where(User.is_subscribed.is_(True))
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -89,7 +93,9 @@ async def get_stats() -> dict[str, int]:
     """Returns count of total and active users."""
     async with AsyncSessionLocal() as session:
         total_stmt = select(func.count(User.id))
-        active_stmt = select(func.count(User.id)).where(User.is_subscribed == True)
+        active_stmt = select(func.count(User.id)).where(
+            User.is_subscribed.is_(True)
+        )
 
         total = (await session.execute(total_stmt)).scalar() or 0
         active = (await session.execute(active_stmt)).scalar() or 0

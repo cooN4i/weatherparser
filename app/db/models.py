@@ -11,7 +11,9 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     telegram_id: Mapped[int] = mapped_column(
         BigInteger, unique=True, index=True, nullable=False
     )
@@ -34,4 +36,7 @@ class User(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<User telegram_id={self.telegram_id} username={self.username} subscribed={self.is_subscribed}>"
+        return (
+            f"<User telegram_id={self.telegram_id} "
+            f"username={self.username} subscribed={self.is_subscribed}>"
+        )

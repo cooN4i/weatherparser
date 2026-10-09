@@ -1,15 +1,16 @@
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 
 from app.config import BASE_DIR, config
 from app.db.models import Base
 
 # Ensure SQLite directory exists if file-based SQLite is used
 if "sqlite" in config.DATABASE_URL:
-    db_path_str = config.DATABASE_URL.replace("sqlite+aiosqlite:///", "").replace(
-        "sqlite:///", ""
-    )
+    db_path_str = config.DATABASE_URL.replace(
+        "sqlite+aiosqlite:///", ""
+    ).replace("sqlite:///", "")
     if db_path_str and not db_path_str.startswith(":memory:"):
         db_file = (
             (BASE_DIR / db_path_str).resolve()

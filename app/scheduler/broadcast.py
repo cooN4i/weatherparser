@@ -28,7 +28,10 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
         logger.info("No active subscribers found for weather broadcast.")
         return
 
-    logger.info("Found %d active subscribers. Sending forecasts...", len(subscribers))
+    logger.info(
+        "Found %d active subscribers. Sending forecasts...",
+        len(subscribers),
+    )
 
     sent_count = 0
     deactivated_count = 0
@@ -53,7 +56,8 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
                 or "not found" in str(e).lower()
             ):
                 logger.warning(
-                    "User %d blocked the bot or chat is invalid (%s). Deactivating subscription.",
+                    "User %d blocked the bot or chat is invalid (%s). "
+                    "Deactivating subscription.",
                     user.telegram_id,
                     e.description,
                 )
@@ -61,15 +65,20 @@ async def send_daily_weather_broadcast(bot: AsyncTeleBot) -> None:
                 deactivated_count += 1
             else:
                 logger.error(
-                    "Telegram API error sending to %d: %s", user.telegram_id, e
+                    "Telegram API error sending to %d: %s",
+                    user.telegram_id,
+                    e,
                 )
                 error_count += 1
         except Exception:
-            logger.exception("Unexpected error sending to user %d", user.telegram_id)
+            logger.exception(
+                "Unexpected error sending to user %d", user.telegram_id
+            )
             error_count += 1
 
     logger.info(
-        "Broadcast completed: %d sent successfully, %d deactivated, %d errors.",
+        "Broadcast completed: %d sent successfully, "
+        "%d deactivated, %d errors.",
         sent_count,
         deactivated_count,
         error_count,

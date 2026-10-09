@@ -106,7 +106,8 @@ class PeriodForecast:
         return (
             f"{self.icon} <b>{self.title}</b>: {format_temp(self.temp)} "
             f"(ощущается {format_temp(self.feels_like)}) • "
-            f"{self.condition_icon} {self.condition}, ветер {self.wind_speed:.1f} м/с ({wind_desc})"
+            f"{self.condition_icon} {self.condition}, "
+            f"ветер {self.wind_speed:.1f} м/с ({wind_desc})"
         )
 
 
@@ -119,8 +120,16 @@ class WeatherService:
         params = {
             "latitude": config.LATITUDE,
             "longitude": config.LONGITUDE,
-            "hourly": "temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m",
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max",
+            "hourly": (
+                "temperature_2m,apparent_temperature,"
+                "precipitation_probability,precipitation,"
+                "weather_code,wind_speed_10m,wind_gusts_10m"
+            ),
+            "daily": (
+                "weather_code,temperature_2m_max,temperature_2m_min,"
+                "precipitation_sum,precipitation_probability_max,"
+                "wind_speed_10m_max,wind_gusts_10m_max"
+            ),
             "wind_speed_unit": "ms",
             "timezone": config.TIMEZONE,
             "forecast_days": 1,
@@ -133,14 +142,14 @@ class WeatherService:
 
     @classmethod
     async def get_today_forecast_message(cls) -> str:
-        """Constructs a beautifully formatted Telegram HTML message with today's weather."""
+        """Constructs formatted Telegram HTML message with today's weather."""
         data = await cls.fetch_forecast()
 
         hourly = data.get("hourly", {})
         daily = data.get("daily", {})
 
         # Indexes for morning (08:00), afternoon (14:00), evening (20:00)
-        # hourly['time'] contains 24 elements for today: ['...T00:00', ... '...T23:00']
+        # hourly['time'] contains 24 elements for today: ['...T00', ...]
         times = hourly.get("time", [])
 
         def get_index_for_hour(target_hour: int) -> int:
@@ -196,7 +205,9 @@ class WeatherService:
 
         # Build precipitation description
         if precip_prob_max >= 40 or precip_sum > 0.2:
-            precip_desc = f"вероятность {precip_prob_max}%, до {precip_sum:.1f} мм"
+            precip_desc = (
+                f"вероятность {precip_prob_max}%, до {precip_sum:.1f} мм"
+            )
         elif precip_sum > 0:
             precip_desc = f"маловероятны (до {precip_sum:.1f} мм)"
         else:
@@ -204,7 +215,9 @@ class WeatherService:
 
         # Current date display
         now = datetime.now()
-        date_str = f"{now.day} {RU_MONTHS[now.month]}, {RU_WEEKDAYS[now.weekday()]}"
+        date_str = (
+            f"{now.day} {RU_MONTHS[now.month]}, {RU_WEEKDAYS[now.weekday()]}"
+        )
 
         # Contextual tip
         tips = []
@@ -226,7 +239,8 @@ class WeatherService:
             f"{day.format_line()}\n"
             f"{evening.format_line()}\n\n"
             f"💧 <b>Осадки:</b> {precip_desc}\n"
-            f"💨 <b>Ветер:</b> до {wind_max:.1f} м/с ({wind_overall_desc}), порывы до {wind_gusts_max:.1f} м/с\n\n"
+            f"💨 <b>Ветер:</b> до {wind_max:.1f} м/с ({wind_overall_desc}), "
+            f"порывы до {wind_gusts_max:.1f} м/с\n\n"
             f"💡 <i>{tip_line}</i>"
         )
 
