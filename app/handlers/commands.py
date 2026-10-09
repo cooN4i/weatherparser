@@ -29,17 +29,12 @@ def register_handlers(bot: AsyncTeleBot) -> None:
 
         greeting = "С возвращением" if not is_new else "Привет"
         welcome_text = (
-            f"🌤 <b>{greeting}, {first_name or 'друг'}!</b>\n\n"
-            f"Я бот прогноза погоды в <b>г. {config.CITY_NAME}</b>.\n\n"
-            f"⏰ <b>Каждое утро в {config.BROADCAST_TIME} (МСК)</b> я буду "
-            "присылать подробный прогноз на весь день: "
-            "температуру утром, днем и вечером, осадки, силу и "
-            "направление ветра, а также полезные советы.\n\n"
-            "📌 <b>Доступные команды:</b>\n"
-            "• /weather — узнать погоду на сегодня прямо сейчас\n"
-            "• /stop — временно отписаться от утренней рассылки\n"
-            "• /help — список всех команд и описание\n\n"
-            "<i>Загружаю текущий прогноз на сегодня...</i>"
+            f"🌤 <b>{greeting}, {first_name}!</b>\n\n"
+            f"Вы подписаны на ежедневный прогноз по г. {config.CITY_NAME} "
+            f"в <b>{config.BROADCAST_TIME} (МСК)</b>.\n\n"
+            "• /weather — погода прямо сейчас\n"
+            "• /stop — отписаться от рассылки\n"
+            "• /help — помощь"
         )
 
         await bot.send_message(user_id, welcome_text, parse_mode="HTML")
@@ -60,8 +55,8 @@ def register_handlers(bot: AsyncTeleBot) -> None:
         except Exception:
             logger.exception("Error fetching weather for user %d", user_id)
             err_msg = (
-                "⚠️ Не удалось получить свежий прогноз погоды. "
-                "Пожалуйста, попробуйте чуть позже."
+                "⚠️ Не удалось получить прогноз погоды. "
+                "Попробуйте чуть позже."
             )
             await bot.send_message(user_id, err_msg)
 
@@ -72,10 +67,8 @@ def register_handlers(bot: AsyncTeleBot) -> None:
 
         if was_unsubscribed:
             text = (
-                "🔕 <b>Вы отписались от ежедневной рассылки.</b>\n\n"
-                "Бот больше не будет присылать утренние сообщения. "
-                "Вы в любой момент можете возобновить подписку "
-                "командой /start или запросить погоду вручную через /weather."
+                "🔕 <b>Вы отписались от утренней рассылки.</b>\n\n"
+                "Чтобы снова подписаться, отправьте /start."
             )
         else:
             text = (
@@ -88,25 +81,11 @@ def register_handlers(bot: AsyncTeleBot) -> None:
     @bot.message_handler(commands=["help"])
     async def handle_help(message: Message) -> None:
         text = (
-            f"📖 <b>Справка по боту погоды ({config.CITY_NAME}):</b>\n\n"
+            f"📖 <b>Команды бота ({config.CITY_NAME}):</b>\n\n"
             f"• /start — подписаться на рассылку в "
             f"{config.BROADCAST_TIME} МСК\n"
-            "• /weather — получить прогноз на сегодня прямо сейчас\n"
+            "• /weather — прогноз на сегодня прямо сейчас\n"
             "• /stop — отключить утреннюю рассылку\n"
-            "• /stats — статистика подписчиков бота\n"
-            "• /help — открыть эту справку"
-        )
-        await bot.send_message(message.chat.id, text, parse_mode="HTML")
-
-    @bot.message_handler(commands=["stats"])
-    async def handle_stats(message: Message) -> None:
-        stats = await crud.get_stats()
-        text = (
-            f"📊 <b>Статистика бота:</b>\n\n"
-            f"👥 Всего пользователей в базе: <b>{stats['total']}</b>\n"
-            f"🔔 Активных подписчиков рассылки: <b>{stats['active']}</b>\n"
-            f"⏰ Время утренней рассылки: "
-            f"<b>{config.BROADCAST_TIME} ({config.TIMEZONE})</b>\n"
-            f"📍 Город: <b>{config.CITY_NAME}</b>"
+            "• /help — справка"
         )
         await bot.send_message(message.chat.id, text, parse_mode="HTML")

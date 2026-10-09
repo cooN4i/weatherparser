@@ -91,6 +91,70 @@ def format_temp(val: float) -> str:
     return f"{rounded}°C"
 
 
+def get_precipitation_summary(hourly: dict, daily: dict) -> str:
+    """
+    Computes precipitation summary with time intervals if expected.
+    E.g. 'дождь до 2.1 мм (08:00–20:00)' or 'без осадков'.
+    """
+    precip_list = hourly.get("precipitation", [])
+    prob_list = hourly.get("precipitation_probability", [])
+    weather_codes = hourly.get("weather_code", [])
+
+    daily_sum = (
+        daily.get("precipitation_sum", [0.0])[0]
+        if daily.get("precipitation_sum")
+        else 0.0
+    )
+    daily_prob = (
+        daily.get("precipitation_probability_max", [0])[0]
+        if daily.get("precipitation_probability_max")
+        else 0
+    )
+
+    # Detect hours with expected rain or snow
+    active_indices = [
+        i
+        for i in range(len(precip_list))
+        if (
+            precip_list[i] >= 0.1
+            or (prob_list and prob_list[i] >= 50 and precip_list[i] > 0)
+        )
+    ]
+
+    if not active_indices or (daily_sum < 0.1 and daily_prob < 40):
+        return "без осадков"
+
+    snow_codes = (71, 73, 75, 77, 85, 86)
+    is_snow = any(weather_codes[i] in snow_codes for i in active_indices)
+    precip_type = "снег" if is_snow else "дождь"
+
+    # Group consecutive hours into time ranges
+    ranges = []
+    start = active_indices[0]
+    prev = active_indices[0]
+    for h in active_indices[1:]:
+        if h == prev + 1:
+            prev = h
+        else:
+            ranges.append((start, prev))
+            start = h
+            prev = h
+    ranges.append((start, prev))
+
+    interval_strs = []
+    for s, e in ranges:
+        if s == e:
+            interval_strs.append(f"около {s:02d}:00")
+        else:
+            end_h = min(e + 1, 24)
+            interval_strs.append(f"{s:02d}:00–{end_h:02d}:00")
+
+    time_desc = ", ".join(interval_strs)
+    if daily_sum > 0:
+        return f"{precip_type} до {daily_sum:.1f} мм ({time_desc})"
+    return f"{precip_type} ({time_desc})"
+
+
 @dataclass
 class PeriodForecast:
     title: str
@@ -99,15 +163,12 @@ class PeriodForecast:
     feels_like: float
     condition: str
     condition_icon: str
-    wind_speed: float
 
     def format_line(self) -> str:
-        wind_desc = classify_wind(self.wind_speed)
         return (
             f"{self.icon} <b>{self.title}</b>: {format_temp(self.temp)} "
-            f"(ощущается {format_temp(self.feels_like)}) • "
-            f"{self.condition_icon} {self.condition}, "
-            f"ветер {self.wind_speed:.1f} м/с ({wind_desc})"
+            f"(ощущ. {format_temp(self.feels_like)}) • "
+            f"{self.condition_icon} {self.condition}"
         )
 
 
@@ -147,9 +208,6 @@ class WeatherService:
 
         hourly = data.get("hourly", {})
         daily = data.get("daily", {})
-
-        # Indexes for morning (08:00), afternoon (14:00), evening (20:00)
-        # hourly['time'] contains 24 elements for today: ['...T00', ...]
         times = hourly.get("time", [])
 
         def get_index_for_hour(target_hour: int) -> int:
@@ -172,24 +230,13 @@ class WeatherService:
                 feels_like=hourly.get("apparent_temperature", [0])[idx],
                 condition=cond_text,
                 condition_icon=cond_icon,
-                wind_speed=hourly.get("wind_speed_10m", [0])[idx],
             )
 
-        morning = make_period("Утро (08:00)", "🌅", idx_morning)
-        day = make_period("День (14:00)", "☀️", idx_day)
-        evening = make_period("Вечер (20:00)", "🌆", idx_evening)
+        morning = make_period("Утро", "🌅", idx_morning)
+        day = make_period("День", "☀️", idx_day)
+        evening = make_period("Вечер", "🌆", idx_evening)
 
-        # Daily aggregated metrics
-        precip_prob_max = (
-            daily.get("precipitation_probability_max", [0])[0]
-            if daily.get("precipitation_probability_max")
-            else 0
-        )
-        precip_sum = (
-            daily.get("precipitation_sum", [0.0])[0]
-            if daily.get("precipitation_sum")
-            else 0.0
-        )
+        # Wind metrics
         wind_max = (
             daily.get("wind_speed_10m_max", [0.0])[0]
             if daily.get("wind_speed_10m_max")
@@ -200,48 +247,31 @@ class WeatherService:
             if daily.get("wind_gusts_10m_max")
             else wind_max
         )
-
-        wind_overall_desc = classify_wind(wind_max)
-
-        # Build precipitation description
-        if precip_prob_max >= 40 or precip_sum > 0.2:
-            precip_desc = (
-                f"вероятность {precip_prob_max}%, до {precip_sum:.1f} мм"
+        wind_desc = classify_wind(wind_max)
+        if wind_gusts_max > wind_max + 1.0:
+            wind_line = (
+                f"{wind_desc}, до {wind_max:.1f} м/с "
+                f"(порывы до {wind_gusts_max:.1f} м/с)"
             )
-        elif precip_sum > 0:
-            precip_desc = f"маловероятны (до {precip_sum:.1f} мм)"
         else:
-            precip_desc = "без существенных осадков"
+            wind_line = f"{wind_desc}, до {wind_max:.1f} м/с"
 
-        # Current date display
+        # Precipitation summary with intervals
+        precip_summary = get_precipitation_summary(hourly, daily)
+
+        # Date string
         now = datetime.now()
         date_str = (
             f"{now.day} {RU_MONTHS[now.month]}, {RU_WEEKDAYS[now.weekday()]}"
         )
 
-        # Contextual tip
-        tips = []
-        if precip_prob_max >= 50 or precip_sum >= 1.0:
-            tips.append("Не забудьте зонт ☂️")
-        if min(morning.feels_like, day.feels_like, evening.feels_like) <= 5:
-            tips.append("Одевайтесь теплее 🧣")
-        if wind_gusts_max >= 12.0:
-            tips.append("Осторожно, порывистый ветер 💨")
-        if not tips:
-            tips.append("Отличного дня и прекрасного настроения! ✨")
-
-        tip_line = " • ".join(tips)
-
         message = (
-            f"📍 <b>Погода в г. {config.CITY_NAME}</b>\n"
-            f"🗓 <i>Сегодня, {date_str}</i>\n\n"
+            f"📍 <b>{config.CITY_NAME} — {date_str}</b>\n\n"
             f"{morning.format_line()}\n"
             f"{day.format_line()}\n"
             f"{evening.format_line()}\n\n"
-            f"💧 <b>Осадки:</b> {precip_desc}\n"
-            f"💨 <b>Ветер:</b> до {wind_max:.1f} м/с ({wind_overall_desc}), "
-            f"порывы до {wind_gusts_max:.1f} м/с\n\n"
-            f"💡 <i>{tip_line}</i>"
+            f"💧 <b>Осадки:</b> {precip_summary}\n"
+            f"💨 <b>Ветер:</b> {wind_line}"
         )
 
         return message
