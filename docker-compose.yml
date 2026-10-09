@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
-  weather_bot:
-    image: ${DOCKERHUB_USERNAME:-weather}/weatherparser:latest
+  weatherparser:
+    image: ${DOCKERHUB_USERNAME:-kyloggg}/weatherparser:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,7 +9,6 @@ services:
     env_file:
       - .env
     volumes:
-      # Persist SQLite database outside the container
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1

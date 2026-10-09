@@ -47,6 +47,7 @@ jobs:
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           envs: DOCKERHUB_USERNAME,BOT_TOKEN
@@ -54,11 +55,26 @@ jobs:
             set -e
             echo "🚀 Starting deployment of Weather Parser Bot..."
 
-            APP_DIR=~/weatherparser
+            APP_DIR=/root/weatherparser
             mkdir -p $APP_DIR/data
             cd $APP_DIR
 
-            # Ensure .env exists with necessary variables
+            # Create or update docker-compose.yml
+            cat << 'EOF' > docker-compose.yml
+            services:
+              weatherparser:
+                image: ${DOCKERHUB_USERNAME}/weatherparser:latest
+                container_name: weatherparser_bot
+                restart: unless-stopped
+                env_file:
+                  - .env
+                volumes:
+                  - ./data:/app/data
+                environment:
+                  - TZ=Europe/Moscow
+            EOF
+
+            # Ensure .env exists with required parameters
             if [ ! -f .env ]; then
               echo "Creating initial .env file..."
               cat << EOF > .env
@@ -72,28 +88,15 @@ jobs:
             EOF
             fi
 
-            # Pull latest image from Docker Hub
+            # Export DOCKERHUB_USERNAME for docker-compose interpolation
+            export DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
+
+            # Pull latest image and recreate container
             echo "Pulling latest Docker image: ${DOCKERHUB_USERNAME}/weatherparser:latest"
-            docker pull ${DOCKERHUB_USERNAME}/weatherparser:latest
+            docker compose pull
+            docker compose up -d --remove-orphans
 
-            # Stop and remove existing container if running
-            if [ "$(docker ps -aq -f name=weatherparser_bot)" ]; then
-              echo "Stopping existing weatherparser_bot container..."
-              docker stop weatherparser_bot || true
-              docker rm weatherparser_bot || true
-            fi
-
-            # Run new container with restart policy and persistent volume
-            echo "Starting updated container..."
-            docker run -d \
-              --name weatherparser_bot \
-              --restart unless-stopped \
-              --env-file .env \
-              -v $APP_DIR/data:/app/data \
-              -e TZ=Europe/Moscow \
-              ${DOCKERHUB_USERNAME}/weatherparser:latest
-
-            # Prune dangling images to save server disk space
+            # Clean up old images
             docker image prune -f
 
             echo "✅ Deployment completed successfully! Container status:"
