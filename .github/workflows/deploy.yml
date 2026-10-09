@@ -1,4 +1,4 @@
-name: CI/CD Build & Deploy
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,9 +6,41 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
-    name: Build & Push to Docker Hub
+  lint-and-test:
+    name: CI: Linting & Unit Tests
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check import ordering (isort)
+        run: |
+          python -m isort --check --diff app/ tests/
+
+      - name: Check PEP 8 code style (flake8 <= 79 chars)
+        run: |
+          python -m flake8 app/ tests/ --max-line-length=79 --show-source
+
+      - name: Run unit & integration tests (pytest)
+        run: |
+          python -m pytest -v
+
+  build-and-push:
+    name: CD: Build & Push to Docker Hub
+    runs-on: ubuntu-latest
+    needs: lint-and-test
 
     steps:
       - name: Checkout repository
@@ -34,7 +66,7 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/weatherparser:${{ github.sha }}
 
   deploy:
-    name: Deploy to Server via SSH
+    name: CD: Deploy to Server via SSH
     runs-on: ubuntu-latest
     needs: build-and-push
 
@@ -46,9 +78,8 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         with:
           host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
+          username: ${{ secrets.SERVER_USER || 'root' }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
           envs: DOCKERHUB_USERNAME,BOT_TOKEN
           script: |
