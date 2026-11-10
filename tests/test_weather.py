@@ -78,6 +78,11 @@ def test_get_precipitation_summary_snow():
 @pytest.mark.asyncio
 async def test_weather_service_message_format(monkeypatch):
     mock_data = {
+        "current": {
+            "temperature_2m": 11.5,
+            "apparent_temperature": 9.0,
+            "weather_code": 1,
+        },
         "hourly": {
             "time": [f"2026-10-10T{h:02d}:00" for h in range(24)],
             "temperature_2m": [10.0] * 24,
@@ -103,15 +108,26 @@ async def test_weather_service_message_format(monkeypatch):
 
     monkeypatch.setattr(WeatherService, "fetch_forecast", mock_fetch)
 
+    # Test daily broadcast format (without current weather)
     msg = await WeatherService.get_today_forecast_message(
-        city_name="Казань"
+        city_name="Казань",
+        include_current=False,
     )
     assert "Казань" in msg
+    assert "Сейчас" not in msg
     assert "Утро" in msg
     assert "День" in msg
     assert "Вечер" in msg
     assert "Осадки:</b> без осадков" in msg
     assert "Ветер:" in msg
-    # Verify no tips/umbrella present
     assert "зонт" not in msg
     assert "Одевайтесь" not in msg
+
+    # Test /weather format (with current weather)
+    msg_current = await WeatherService.get_today_forecast_message(
+        city_name="Казань",
+        include_current=True,
+    )
+    assert "Сейчас" in msg_current
+    assert "+12°C" in msg_current
+    assert "Утро" in msg_current

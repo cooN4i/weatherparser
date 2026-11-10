@@ -243,6 +243,7 @@ def register_handlers(bot: AsyncTeleBot) -> None:
                 longitude=user.longitude,
                 city_name=user.city_name,
                 timezone=user.timezone,
+                include_current=True,
             )
             await bot.send_message(user_id, forecast_msg, parse_mode="HTML")
         except Exception:

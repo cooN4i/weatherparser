@@ -190,6 +190,7 @@ class WeatherService:
         params = {
             "latitude": lat,
             "longitude": lon,
+            "current": "temperature_2m,apparent_temperature,weather_code",
             "hourly": (
                 "temperature_2m,apparent_temperature,"
                 "precipitation_probability,precipitation,"
@@ -239,6 +240,7 @@ class WeatherService:
         longitude: float | None = None,
         city_name: str | None = None,
         timezone: str | None = None,
+        include_current: bool = False,
     ) -> str:
         """Constructs formatted Telegram HTML message with today's weather."""
         lat = latitude if latitude is not None else config.LATITUDE
@@ -253,6 +255,20 @@ class WeatherService:
         hourly = data.get("hourly", {})
         daily = data.get("daily", {})
         times = hourly.get("time", [])
+
+        # Format current weather line if requested (e.g. for /weather command)
+        current_line = ""
+        current_data = data.get("current")
+        if include_current and current_data:
+            c_temp = current_data.get("temperature_2m", 0.0)
+            c_feels = current_data.get("apparent_temperature", c_temp)
+            c_code = current_data.get("weather_code", 0)
+            c_text, c_icon = WMO_CODES.get(c_code, ("Облачно", "⛅"))
+            current_line = (
+                f"⏱ <b>Сейчас</b>: {format_temp(c_temp)} "
+                f"(ощущ. {format_temp(c_feels)}) • "
+                f"{c_icon} {c_text}\n\n"
+            )
 
         def get_index_for_hour(target_hour: int) -> int:
             for idx, t in enumerate(times):
@@ -311,6 +327,7 @@ class WeatherService:
 
         message = (
             f"📍 <b>{city} — {date_str}</b>\n\n"
+            f"{current_line}"
             f"{morning.format_line()}\n"
             f"{day.format_line()}\n"
             f"{evening.format_line()}\n\n"
