@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
                                     create_async_engine)
 
@@ -32,7 +33,28 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
+def _migrate_columns(connection) -> None:
+    """Safe schema migration for existing SQLite databases."""
+    inspector = inspect(connection)
+    if "users" not in inspector.get_table_names():
+        return
+    existing_cols = {col["name"] for col in inspector.get_columns("users")}
+    new_cols = {
+        "city_name": "VARCHAR(100)",
+        "latitude": "FLOAT",
+        "longitude": "FLOAT",
+        "timezone": "VARCHAR(50)",
+        "state": "VARCHAR(50)",
+    }
+    for col_name, col_type in new_cols.items():
+        if col_name not in existing_cols:
+            connection.execute(
+                text(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
+            )
+
+
 async def init_db() -> None:
-    """Create all tables in the database."""
+    """Create all tables in the database and apply column additions."""
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_migrate_columns)

@@ -98,13 +98,15 @@ async def test_weather_service_message_format(monkeypatch):
         },
     }
 
-    async def mock_fetch():
+    async def mock_fetch(*args, **kwargs):
         return mock_data
 
     monkeypatch.setattr(WeatherService, "fetch_forecast", mock_fetch)
 
-    msg = await WeatherService.get_today_forecast_message()
-    assert "Санкт-Петербург" in msg
+    msg = await WeatherService.get_today_forecast_message(
+        city_name="Казань"
+    )
+    assert "Казань" in msg
     assert "Утро" in msg
     assert "День" in msg
     assert "Вечер" in msg

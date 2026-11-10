@@ -176,11 +176,20 @@ class WeatherService:
     API_URL = "https://api.open-meteo.com/v1/forecast"
 
     @classmethod
-    async def fetch_forecast(cls) -> dict:
-        """Fetches forecast data from Open-Meteo."""
+    async def fetch_forecast(
+        cls,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        timezone: str | None = None,
+    ) -> dict:
+        """Fetches forecast data from Open-Meteo with retries."""
+        lat = latitude if latitude is not None else config.LATITUDE
+        lon = longitude if longitude is not None else config.LONGITUDE
+        tz = timezone if timezone is not None else config.TIMEZONE
+
         params = {
-            "latitude": config.LATITUDE,
-            "longitude": config.LONGITUDE,
+            "latitude": lat,
+            "longitude": lon,
             "hourly": (
                 "temperature_2m,apparent_temperature,"
                 "precipitation_probability,precipitation,"
@@ -192,19 +201,54 @@ class WeatherService:
                 "wind_speed_10m_max,wind_gusts_10m_max"
             ),
             "wind_speed_unit": "ms",
-            "timezone": config.TIMEZONE,
+            "timezone": tz,
             "forecast_days": 1,
         }
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(cls.API_URL, params=params)
-            response.raise_for_status()
-            return response.json()
+        # Up to 3 attempts with exponential backoff for 503/transient errors
+        for attempt in range(1, 4):
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(cls.API_URL, params=params)
+                    response.raise_for_status()
+                    return response.json()
+            except (httpx.HTTPStatusError, httpx.RequestError) as err:
+                if attempt == 3:
+                    logger.error(
+                        "Weather API fetch failed on attempt %d: %s",
+                        attempt,
+                        err,
+                    )
+                    raise
+                wait_sec = attempt * 2
+                logger.warning(
+                    "Weather API attempt %d failed (%s). Retrying in %ds...",
+                    attempt,
+                    err,
+                    wait_sec,
+                )
+                import asyncio
+                await asyncio.sleep(wait_sec)
+
+        raise RuntimeError("Unexpected end of fetch_forecast retries")
 
     @classmethod
-    async def get_today_forecast_message(cls) -> str:
+    async def get_today_forecast_message(
+        cls,
+        latitude: float | None = None,
+        longitude: float | None = None,
+        city_name: str | None = None,
+        timezone: str | None = None,
+    ) -> str:
         """Constructs formatted Telegram HTML message with today's weather."""
-        data = await cls.fetch_forecast()
+        lat = latitude if latitude is not None else config.LATITUDE
+        lon = longitude if longitude is not None else config.LONGITUDE
+        city = city_name if city_name is not None else config.CITY_NAME
+        tz = timezone if timezone is not None else config.TIMEZONE
+
+        data = await cls.fetch_forecast(
+            latitude=lat, longitude=lon, timezone=tz
+        )
 
         hourly = data.get("hourly", {})
         daily = data.get("daily", {})
@@ -266,7 +310,7 @@ class WeatherService:
         )
 
         message = (
-            f"📍 <b>{config.CITY_NAME} — {date_str}</b>\n\n"
+            f"📍 <b>{city} — {date_str}</b>\n\n"
             f"{morning.format_line()}\n"
             f"{day.format_line()}\n"
             f"{evening.format_line()}\n\n"

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -23,6 +23,15 @@ class User(Base):
         Boolean, default=True, index=True, nullable=False
     )
 
+    # City & Location configuration
+    city_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    timezone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # User conversation state (e.g. 'waiting_city')
+    state: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -38,5 +47,5 @@ class User(Base):
     def __repr__(self) -> str:
         return (
             f"<User telegram_id={self.telegram_id} "
-            f"username={self.username} subscribed={self.is_subscribed}>"
+            f"city={self.city_name} subscribed={self.is_subscribed}>"
         )

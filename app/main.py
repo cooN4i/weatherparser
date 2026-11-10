@@ -39,26 +39,18 @@ async def main() -> None:
     # 4. Register command handlers
     register_handlers(bot)
 
-    # 5. Setup AsyncIOScheduler with Europe/Moscow timezone
-    tz = pytz.timezone(config.TIMEZONE)
-    scheduler = AsyncIOScheduler(timezone=tz)
-
-    hour, minute = config.get_broadcast_hour_minute()
+    # 5. Setup AsyncIOScheduler running hourly to support all timezones
+    scheduler = AsyncIOScheduler(timezone=pytz.UTC)
     scheduler.add_job(
         send_daily_weather_broadcast,
-        trigger=CronTrigger(hour=hour, minute=minute, timezone=tz),
+        trigger=CronTrigger(minute=0, timezone=pytz.UTC),
         args=[bot],
         id="daily_weather_broadcast",
         replace_existing=True,
         misfire_grace_time=3600,
     )
     scheduler.start()
-    logger.info(
-        "Scheduler started. Daily forecast scheduled at %02d:%02d (%s)",
-        hour,
-        minute,
-        config.TIMEZONE,
-    )
+    logger.info("Scheduler started. Running broadcast check hourly at :00.")
 
     # 6. Retrieve bot information
     try:
