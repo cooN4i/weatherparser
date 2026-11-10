@@ -6,6 +6,7 @@ import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from telebot.async_telebot import AsyncTeleBot
+from telebot.types import BotCommand
 
 from app.config import config
 from app.db.session import init_db
@@ -52,7 +53,7 @@ async def main() -> None:
     scheduler.start()
     logger.info("Scheduler started. Running broadcast check hourly at :00.")
 
-    # 6. Retrieve bot information
+    # 6. Retrieve bot information and register command menu
     try:
         me = await bot.get_me()
         logger.info(
@@ -60,6 +61,16 @@ async def main() -> None:
             me.username,
             me.id,
         )
+        await bot.set_my_commands(
+            [
+                BotCommand("weather", "Погода прямо сейчас"),
+                BotCommand("city", "Выбрать или изменить город"),
+                BotCommand("stop", "Отписаться от рассылки"),
+                BotCommand("start", "Главное меню / Старт"),
+                BotCommand("help", "Справка по боту"),
+            ]
+        )
+        logger.info("Bot command menu registered successfully.")
     except Exception as e:
         logger.error(
             "Failed to connect to Telegram API. Check your BOT_TOKEN: %s",
